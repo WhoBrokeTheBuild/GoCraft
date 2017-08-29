@@ -2,97 +2,146 @@ package main
 
 import (
 	"fmt"
-		"image"
+	"image"
 	"image/draw"
-	_ "image/png"
 	_ "image/jpeg"
+	_ "image/png"
 	"os"
-    "runtime"
+	"runtime"
 	"strings"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
-    "github.com/go-gl/glfw/v3.2/glfw"
-    "github.com/go-gl/mathgl/mgl32"
+	"github.com/go-gl/glfw/v3.2/glfw"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 func init() {
-    // Needed to assure that main() runs on the main thread
-    runtime.LockOSThread()
+	// Needed to assure that main() runs on the main thread
+	runtime.LockOSThread()
 }
 
 func main() {
-    err := glfw.Init()
-    if err != nil {
-        panic(err)
-    }
-    defer glfw.Terminate()
+	err := glfw.Init()
+	if err != nil {
+		panic(err)
+	}
+	defer glfw.Terminate()
 
-    glfw.WindowHint(glfw.Resizable, glfw.False)
-    glfw.WindowHint(glfw.ContextVersionMajor, 4)
-    glfw.WindowHint(glfw.ContextVersionMinor, 1)
-    glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-    glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-    window, err := glfw.CreateWindow(1024, 768, "GoCraft", nil, nil)
-    if err != nil {
-        panic(err)
-    }
+	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.ContextVersionMajor, 4)
+	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+	window, err := glfw.CreateWindow(1024, 768, "GoCraft", nil, nil)
+	if err != nil {
+		panic(err)
+	}
 
-    window.MakeContextCurrent()
+	window.MakeContextCurrent()
 
-    // Initialize Glow
-    err = gl.Init()
-    if err != nil {
-        panic(err)
-    }
+	// Initialize Glow
+	err = gl.Init()
+	if err != nil {
+		panic(err)
+	}
 
-    version := gl.GoStr(gl.GetString(gl.VERSION))
-    fmt.Println("Running OpenGL version", version)
+	version := gl.GoStr(gl.GetString(gl.VERSION))
+	fmt.Println("Running OpenGL version", version)
 
-    program, err := newProgram(vertexShader, fragmentShader)
+	program, err := newProgram(vertexShader, fragmentShader)
 	if err != nil {
 		panic(err)
 	}
 
 	gl.UseProgram(program)
 
-    proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(1024) / 768, 0.1, 100.0)
+	proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(1024) / 768, 0.1, 200.0)
 	projUniform := gl.GetUniformLocation(program, gl.Str("proj\x00"))
 	gl.UniformMatrix4fv(projUniform, 1, false, &proj[0])
 
-    view := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	view := mgl32.LookAtV(mgl32.Vec3{ 70, 70, 70 }, mgl32.Vec3{ 0, 0, 0 }, mgl32.Vec3{ 0, 1, 0 })
 	viewUniform := gl.GetUniformLocation(program, gl.Str("view\x00"))
 	gl.UniformMatrix4fv(viewUniform, 1, false, &view[0])
 
-    model := mgl32.Ident4()
+	model := mgl32.Ident4()
 	modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
 	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
-	tex, err := newTexture("dirt.jpg")
+	tex, err := newTexture("blocks.png")
 	if err != nil {
 		panic(err)
 	}
 	texUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
 	gl.Uniform1i(texUniform, 0)
 
-    var vao uint32
-    gl.GenVertexArrays(1, &vao)
-    gl.BindVertexArray(vao)
+    allBlocks := GetAllBlocks()
 
-    var vbos [2]uint32
-    gl.GenBuffers(2, &vbos[0])
-    gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
-    gl.BufferData(gl.ARRAY_BUFFER, len(vertices) * 4, gl.Ptr(vertices), gl.STATIC_DRAW)
+    chunk := [32][32][128]BlockID{}
+    chunkLen := len(chunk) * len(chunk[0]) * len(chunk[0][0])
 
-    vertAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_vert\x00")))
-	gl.EnableVertexAttribArray(vertAttr)
-	gl.VertexAttribPointer(vertAttr, 3, gl.FLOAT, false, 3 * 4, gl.PtrOffset(0))
+    for i := 0; i < len(chunk); i++ {
+        for j := 0; j < len(chunk[0]); j++ {
+            for k := 0; k < 5; k++ {
+                chunk[i][j][k] = BlockID{ 1, 0 }
+            }
+            chunk[i][j][5] = BlockID{ 3, 0 }
+            chunk[i][j][6] = BlockID{ 3, 0 }
+            chunk[i][j][7] = BlockID{ 3, 0 }
+            chunk[i][j][8] = BlockID{ 2, 0 }
+        }
+    }
+
+	var vao uint32
+	gl.GenVertexArrays(1, &vao)
+	gl.BindVertexArray(vao)
+
+	var vbos [2]uint32
+	gl.GenBuffers(2, &vbos[0])
+
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
+	gl.BufferData(gl.ARRAY_BUFFER, chunkLen * 36 * 3 * 4, nil, gl.DYNAMIC_DRAW)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbos[1])
-	gl.BufferData(gl.ARRAY_BUFFER, len(texcoords) * 4, gl.Ptr(texcoords), gl.STATIC_DRAW)
+    gl.BufferData(gl.ARRAY_BUFFER, chunkLen * 36 * 2 * 4, nil, gl.DYNAMIC_DRAW)
 
+    spaceOffset := []float32{ float32(-(len(chunk) + 1) / 2), float32(-(len(chunk[0][0]) + 1) / 2), float32(-(len(chunk[0]) + 1) / 2) }
+
+    vertOffset := 0
+    texcoordOffset := 0
+    for row := range chunk {
+        for col := range chunk[row] {
+            for slice := range chunk[row][col] {
+                id := chunk[row][col][slice]
+                block := allBlocks[id]
+                verts, texcoords := block.GetData()
+
+                position := []float32{ float32(row), float32(slice), float32(col) }
+
+                for i := range verts {
+                    verts[i] += spaceOffset[i % 3]
+                    verts[i] += position[i % 3]
+                }
+
+                gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
+                gl.BufferSubData(gl.ARRAY_BUFFER, vertOffset, len(verts) * 4, gl.Ptr(verts))
+                vertOffset += len(verts) * 4
+
+                gl.BindBuffer(gl.ARRAY_BUFFER, vbos[1])
+                gl.BufferSubData(gl.ARRAY_BUFFER, texcoordOffset, len(texcoords) * 4, gl.Ptr(texcoords))
+                texcoordOffset += len(texcoords) * 4
+            }
+        }
+    }
+
+    gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
+    vertAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_vert\x00")))
+    gl.EnableVertexAttribArray(vertAttr)
+    gl.VertexAttribPointer(vertAttr, 3, gl.FLOAT, false, 0, gl.PtrOffset(0))
+
+    gl.BindBuffer(gl.ARRAY_BUFFER, vbos[1])
 	texcoordAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_texcoord\x00")))
 	gl.EnableVertexAttribArray(texcoordAttr)
-	gl.VertexAttribPointer(texcoordAttr, 2, gl.FLOAT, false, 2 * 4, gl.PtrOffset(0))
+	gl.VertexAttribPointer(texcoordAttr, 2, gl.FLOAT, false, 0, gl.PtrOffset(0))
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
@@ -101,15 +150,24 @@ func main() {
 	angle := 0.0
 	previousTime := glfw.GetTime()
 
-    for ! window.ShouldClose() {
+    var state glfw.Action
+
+	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		time := glfw.GetTime()
 		elapsed := time - previousTime
 		previousTime = time
 
-		angle += elapsed
-		model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
+        state = window.GetKey(glfw.KeyLeft)
+        if state == glfw.Press {
+            angle -= elapsed
+        }
+        state = window.GetKey(glfw.KeyRight)
+        if state == glfw.Press {
+            angle += elapsed
+        }
+        model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
 
 		gl.UseProgram(program)
 		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
@@ -119,11 +177,11 @@ func main() {
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, tex)
 
-		gl.DrawArrays(gl.TRIANGLES, 0, 6 * 3 * 3)
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(chunkLen * 36))
 
-        window.SwapBuffers()
-        glfw.PollEvents()
-    }
+		window.SwapBuffers()
+		glfw.PollEvents()
+	}
 }
 
 func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
@@ -184,7 +242,6 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 	return shader, nil
 }
 
-
 func newTexture(file string) (uint32, error) {
 	imgFile, err := os.Open(file)
 	if err != nil {
@@ -205,8 +262,8 @@ func newTexture(file string) (uint32, error) {
 	gl.GenTextures(1, &texture)
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, texture)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 	gl.TexImage2D(
@@ -238,6 +295,9 @@ out vec2 texcoord;
 void main() {
 	texcoord = in_texcoord;
 	gl_Position = proj * view * model * vec4(in_vert, 1);
+    if (texcoord.x < 0.0 && texcoord.y < 0.0) {
+        gl_Position = vec4(0, 0, 0, 0);
+    }
 }
 
 ` + "\x00"
@@ -252,106 +312,6 @@ in vec2 texcoord;
 out vec4 o_color;
 
 void main() {
-	o_color = texture(tex, texcoord);
+    o_color = texture(tex, texcoord);
 }
 ` + "\x00"
-
-var vertices = []float32{
-    // Bottom
-	-1.0, -1.0, -1.0,
-	1.0, -1.0, -1.0,
-	-1.0, -1.0, 1.0,
-	1.0, -1.0, -1.0,
-	1.0, -1.0, 1.0,
-	-1.0, -1.0, 1.0,
-
-	// Top
-	-1.0, 1.0, -1.0,
-	-1.0, 1.0, 1.0,
-	1.0, 1.0, -1.0,
-	1.0, 1.0, -1.0,
-	-1.0, 1.0, 1.0,
-	1.0, 1.0, 1.0,
-
-	// Front
-	-1.0, -1.0, 1.0,
-	1.0, -1.0, 1.0,
-	-1.0, 1.0, 1.0,
-	1.0, -1.0, 1.0,
-	1.0, 1.0, 1.0,
-	-1.0, 1.0, 1.0,
-
-	// Back
-	-1.0, -1.0, -1.0,
-	-1.0, 1.0, -1.0,
-	1.0, -1.0, -1.0,
-	1.0, -1.0, -1.0,
-	-1.0, 1.0, -1.0,
-	1.0, 1.0, -1.0,
-
-	// Left
-	-1.0, -1.0, 1.0,
-	-1.0, 1.0, -1.0,
-	-1.0, -1.0, -1.0,
-	-1.0, -1.0, 1.0,
-	-1.0, 1.0, 1.0,
-	-1.0, 1.0, -1.0,
-
-	// Right
-	1.0, -1.0, 1.0,
-	1.0, -1.0, -1.0,
-	1.0, 1.0, -1.0,
-	1.0, -1.0, 1.0,
-	1.0, 1.0, -1.0,
-	1.0, 1.0, 1.0,
-}
-
-var texcoords = []float32{
-    // Bottom
-    0.0, 0.0,
-    1.0, 0.0,
-    0.0, 1.0,
-    1.0, 0.0,
-    1.0, 1.0,
-    0.0, 1.0,
-
-    // Top
-    0.0, 0.0,
-    0.0, 1.0,
-    1.0, 0.0,
-    1.0, 0.0,
-    0.0, 1.0,
-    1.0, 1.0,
-
-    // Front
-    1.0, 0.0,
-	0.0, 0.0,
-	1.0, 1.0,
-	0.0, 0.0,
-	0.0, 1.0,
-	1.0, 1.0,
-
-	// Back
-	0.0, 0.0,
-	0.0, 1.0,
-	1.0, 0.0,
-	1.0, 0.0,
-	0.0, 1.0,
-	1.0, 1.0,
-
-	// Left
-	0.0, 1.0,
-	1.0, 0.0,
-	0.0, 0.0,
-	0.0, 1.0,
-	1.0, 1.0,
-	1.0, 0.0,
-
-	// Right
-	1.0, 1.0,
-	1.0, 0.0,
-	0.0, 0.0,
-	1.0, 1.0,
-	0.0, 0.0,
-	0.0, 1.0,
-}
