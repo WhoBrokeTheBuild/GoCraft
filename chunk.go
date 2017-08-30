@@ -1,16 +1,16 @@
 package main
 
 import (
-    "os"
-    "io"
-    "path/filepath"
-    "compress/zlib"
-    "encoding/binary"
-    "bufio"
-    "fmt"
-    "math"
-    "errors"
-    "github.com/go-gl/gl/v4.1-core/gl"
+	"bufio"
+	"compress/zlib"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"github.com/go-gl/gl/v4.1-core/gl"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
 )
 
 var (
@@ -18,68 +18,68 @@ var (
 )
 
 type Chunk struct {
-    X    int
-    Z    int
-    Data [16][16][256]BlockID
-    VAO  uint32
+	X    int
+	Z    int
+	Data [16][16][256]BlockID
+	VAO  uint32
 	VBOs [2]uint32
 }
 
-func (c *Chunk) GetLength() (int) {
-    return len(c.Data) * len(c.Data[0]) * len(c.Data[0][0])
+func (c *Chunk) GetLength() int {
+	return len(c.Data) * len(c.Data[0]) * len(c.Data[0][0])
 }
 
-func (ch *Chunk) Load(dir string, x int, z int, program uint32) (error) {
-    mcaName := fmt.Sprintf("r.%v.%v.mca", x>>5, z>>5)
-    mcaPath := filepath.Join(dir, "region", mcaName)
+func (ch *Chunk) Load(dir string, x int, z int, program uint32) error {
+	mcaName := fmt.Sprintf("r.%v.%v.mca", x>>5, z>>5)
+	mcaPath := filepath.Join(dir, "region", mcaName)
 
-    file, err := os.Open(mcaPath)
-    if err != nil {
-        return err
-    }
-    defer file.Close()
+	file, err := os.Open(mcaPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-    ch.X = x
-    ch.Z = z
+	ch.X = x
+	ch.Z = z
 
-    file.Seek(int64(4*((x&31)+(z&31)*32)), io.SeekStart)
+	file.Seek(int64(4*((x&31)+(z&31)*32)), io.SeekStart)
 
 	var (
-        location uint32
+		location        uint32
 		length          uint32
 		compressionType byte
 	)
 
-    err = binary.Read(file, binary.BigEndian, &location)
-    if err != nil {
-        return err
-    }
+	err = binary.Read(file, binary.BigEndian, &location)
+	if err != nil {
+		return err
+	}
 
-    file.Seek(int64(4096 * (int(location) >> 8)), io.SeekStart)
+	file.Seek(int64(4096*(int(location)>>8)), io.SeekStart)
 
-    err = binary.Read(file, binary.BigEndian, &length)
-    if err != nil {
-        return err
-    }
+	err = binary.Read(file, binary.BigEndian, &length)
+	if err != nil {
+		return err
+	}
 
-    err = binary.Read(file, binary.BigEndian, &compressionType)
-    if err != nil {
-        return err
-    }
+	err = binary.Read(file, binary.BigEndian, &compressionType)
+	if err != nil {
+		return err
+	}
 
-    zfile, err := zlib.NewReader(file)
-    if err != nil {
-        return err
-    }
-    defer zfile.Close()
+	zfile, err := zlib.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer zfile.Close()
 
-    chunkData := new(chunkData)
+	chunkData := new(chunkData)
 	chunkData.sections = make([]*sectionData, 0)
 	if err := chunkData.parse(NewChunkReader(zfile), false); err != nil {
 		return err
 	}
 
-    if len(chunkData.sections) != 0 {
+	if len(chunkData.sections) != 0 {
 		for _, section := range chunkData.sections {
 			for i, blockId := range section.blocks {
 				var metadata byte
@@ -90,9 +90,9 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) (error) {
 				}
 				// Note that the old format is XZY and the new format is YZX
 				x, z, y := indexToCoords(i, 16, 16)
-                y += 16 * section.y
-                // coordsToIndex(x, z, y+16*section.y, 16, 256)
-				ch.Data[x][z][y] = BlockID{ int(blockId), int(metadata) }
+				y += 16 * section.y
+				// coordsToIndex(x, z, y+16*section.y, 16, 256)
+				ch.Data[x][z][y] = BlockID{int(blockId), int(metadata)}
 			}
 		}
 	} else {
@@ -104,12 +104,12 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) (error) {
 		//		} else {
 		//			metadata = chunkData.data[i/2] & 0xf
 		//		}
-        //        ch.Data[i] = BlockID{ int(blockId + (metadata << 8)), 0 }
+		//        ch.Data[i] = BlockID{ int(blockId + (metadata << 8)), 0 }
 		//	}
 		//}
-    }
+	}
 
-    allBlocks := GetAllBlocks()
+	allBlocks := GetAllBlocks()
 
 	gl.GenVertexArrays(1, &ch.VAO)
 	gl.BindVertexArray(ch.VAO)
@@ -117,51 +117,51 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) (error) {
 	gl.GenBuffers(2, &ch.VBOs[0])
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
-	gl.BufferData(gl.ARRAY_BUFFER, ch.GetLength() * 36 * 3 * 4, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, ch.GetLength()*36*3*4, nil, gl.DYNAMIC_DRAW)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
-    gl.BufferData(gl.ARRAY_BUFFER, ch.GetLength() * 36 * 2 * 4, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, ch.GetLength()*36*2*4, nil, gl.DYNAMIC_DRAW)
 
-    vertOffset := 0
-    texcoordOffset := 0
-    for row := range ch.Data {
-        for col := range ch.Data[row] {
-            for slice := range ch.Data[row][col] {
-                id := ch.Data[row][col][slice]
-                block, ok := allBlocks[id]
-                if !ok {
-                    block = allBlocks[BlockID{ 0, 0 }]
-                }
-                verts, texcoords := block.GetData()
+	vertOffset := 0
+	texcoordOffset := 0
+	for row := range ch.Data {
+		for col := range ch.Data[row] {
+			for slice := range ch.Data[row][col] {
+				id := ch.Data[row][col][slice]
+				block, ok := allBlocks[id]
+				if !ok {
+					block = allBlocks[BlockID{0, 0}]
+				}
+				verts, texcoords := block.GetData()
 
-                position := []float32{ float32(row), float32(slice), float32(col) }
+				position := []float32{float32(row), float32(slice), float32(col)}
 
-                for i := range verts {
-                    verts[i] += position[i % 3]
-                }
+				for i := range verts {
+					verts[i] += position[i%3]
+				}
 
-                gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
-                gl.BufferSubData(gl.ARRAY_BUFFER, vertOffset, len(verts) * 4, gl.Ptr(verts))
-                vertOffset += len(verts) * 4
+				gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
+				gl.BufferSubData(gl.ARRAY_BUFFER, vertOffset, len(verts)*4, gl.Ptr(verts))
+				vertOffset += len(verts) * 4
 
-                gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
-                gl.BufferSubData(gl.ARRAY_BUFFER, texcoordOffset, len(texcoords) * 4, gl.Ptr(texcoords))
-                texcoordOffset += len(texcoords) * 4
-            }
-        }
-    }
+				gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
+				gl.BufferSubData(gl.ARRAY_BUFFER, texcoordOffset, len(texcoords)*4, gl.Ptr(texcoords))
+				texcoordOffset += len(texcoords) * 4
+			}
+		}
+	}
 
-    gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
-    vertAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_vert\x00")))
-    gl.EnableVertexAttribArray(vertAttr)
-    gl.VertexAttribPointer(vertAttr, 3, gl.FLOAT, false, 0, gl.PtrOffset(0))
+	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
+	vertAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_vert\x00")))
+	gl.EnableVertexAttribArray(vertAttr)
+	gl.VertexAttribPointer(vertAttr, 3, gl.FLOAT, false, 0, gl.PtrOffset(0))
 
-    gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
+	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
 	texcoordAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_texcoord\x00")))
 	gl.EnableVertexAttribArray(texcoordAttr)
 	gl.VertexAttribPointer(texcoordAttr, 2, gl.FLOAT, false, 0, gl.PtrOffset(0))
 
-    return nil
+	return nil
 }
 
 func indexToCoords(i, aMax, bMax int) (a, b, c int) {
@@ -203,11 +203,11 @@ const (
 )
 
 type ChunkReader struct {
-    r *bufio.Reader
+	r *bufio.Reader
 }
 
 func NewChunkReader(r io.Reader) *ChunkReader {
-    return &ChunkReader{bufio.NewReader(r)}
+	return &ChunkReader{bufio.NewReader(r)}
 }
 
 func (r *ChunkReader) ReadTag() (typeId ChunkTypeId, name string, err error) {
@@ -300,8 +300,8 @@ func (r *ChunkReader) ReadFloat64() (float64, error) {
 }
 
 func (r *ChunkReader) readTypeId() (ChunkTypeId, error) {
-    id, err := r.r.ReadByte()
-    return ChunkTypeId(id), err
+	id, err := r.r.ReadByte()
+	return ChunkTypeId(id), err
 }
 
 func (r *ChunkReader) readIntN(n int) (int, error) {
@@ -435,7 +435,6 @@ type chunkData struct {
 	section    *sectionData
 	sections   []*sectionData
 }
-
 
 type sectionData struct {
 	y      int
@@ -572,7 +571,7 @@ func (chunk *chunkData) parse(r *ChunkReader, listStruct bool) error {
 						return err
 					}
 				}
-            case TagStructEnd:
+			case TagStructEnd:
 
 			default:
 				fmt.Printf("# %s list todo(%v) %v\n", name, itemTypeId, length)

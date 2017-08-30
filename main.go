@@ -55,11 +55,11 @@ func main() {
 
 	gl.UseProgram(program)
 
-	proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(1024) / 768, 0.1, 200.0)
+	proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(1024)/768, 0.1, 200.0)
 	projUniform := gl.GetUniformLocation(program, gl.Str("proj\x00"))
 	gl.UniformMatrix4fv(projUniform, 1, false, &proj[0])
 
-	view := mgl32.LookAtV(mgl32.Vec3{ 32, 32, 32 }, mgl32.Vec3{ 16, 24, 16 }, mgl32.Vec3{ 0, 1, 0 })
+	view := mgl32.LookAtV(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{16, 24, 16}, mgl32.Vec3{0, 1, 0})
 	viewUniform := gl.GetUniformLocation(program, gl.Str("view\x00"))
 	gl.UniformMatrix4fv(viewUniform, 1, false, &view[0])
 
@@ -74,18 +74,18 @@ func main() {
 	texUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
 	gl.Uniform1i(texUniform, 0)
 
-    chunks := [3][3]Chunk{}
-    for x := 0; x < len(chunks); x++ {
-        for z := 0; z < len(chunks[0]); z++ {
-            chunks[x][z] = Chunk{}
-            err = chunks[x][z].Load("maps/Panda Islands", x, z, program)
-            if err != nil {
-                panic(err)
-            }
-        }
-    }
+	chunks := [3][3]Chunk{}
+	for x := 0; x < len(chunks); x++ {
+		for z := 0; z < len(chunks[0]); z++ {
+			chunks[x][z] = Chunk{}
+			err = chunks[x][z].Load("maps/Panda Islands", x, z, program)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 
-    gl.CullFace(gl.FRONT_AND_BACK)
+	gl.CullFace(gl.FRONT_AND_BACK)
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
@@ -94,7 +94,7 @@ func main() {
 	angle := 0.0
 	previousTime := glfw.GetTime()
 
-    var state glfw.Action
+	var state glfw.Action
 
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -103,33 +103,33 @@ func main() {
 		elapsed := time - previousTime
 		previousTime = time
 
-        state = window.GetKey(glfw.KeyLeft)
-        if state == glfw.Press {
-            angle -= elapsed
-        }
-        state = window.GetKey(glfw.KeyRight)
-        if state == glfw.Press {
-            angle += elapsed
-        }
+		state = window.GetKey(glfw.KeyLeft)
+		if state == glfw.Press {
+			angle -= elapsed
+		}
+		state = window.GetKey(glfw.KeyRight)
+		if state == glfw.Press {
+			angle += elapsed
+		}
 
-        gl.UseProgram(program)
+		gl.UseProgram(program)
 
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, tex)
 
-        for x := 0; x < len(chunks); x++ {
-            for z := 0; z < len(chunks[0]); z++ {
-                chunk := chunks[x][z]
+		for x := 0; x < len(chunks); x++ {
+			for z := 0; z < len(chunks[0]); z++ {
+				chunk := chunks[x][z]
 
-                model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
-                model = model.Mul4(mgl32.Translate3D(float32(x * 16), 0, float32(z * 16)))
+				model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
+				model = model.Mul4(mgl32.Translate3D(float32(x*16), 0, float32(z*16)))
 
-        		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+				gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
-        		gl.BindVertexArray(chunk.VAO)
-        		gl.DrawArrays(gl.TRIANGLES, 0, int32(chunk.GetLength() * 36))
-            }
-        }
+				gl.BindVertexArray(chunk.VAO)
+				gl.DrawArrays(gl.TRIANGLES, 0, int32(chunk.GetLength()*36))
+			}
+		}
 
 		window.SwapBuffers()
 		glfw.PollEvents()
