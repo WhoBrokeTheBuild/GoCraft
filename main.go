@@ -21,6 +21,10 @@ func init() {
 }
 
 func main() {
+	const (
+		WinWidth  = 1024
+		WinHeight = 768
+	)
 	err := glfw.Init()
 	if err != nil {
 		panic(err)
@@ -32,12 +36,15 @@ func main() {
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-	window, err := glfw.CreateWindow(1024, 768, "GoCraft", nil, nil)
+	window, err := glfw.CreateWindow(WinWidth, WinHeight, "GoCraft", nil, nil)
 	if err != nil {
 		panic(err)
 	}
 
 	window.MakeContextCurrent()
+
+	window.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
+	window.SetCursorPos(WinWidth/2, WinHeight/2)
 
 	// Initialize Glow
 	err = gl.Init()
@@ -55,7 +62,7 @@ func main() {
 
 	gl.UseProgram(program)
 
-	proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(1024)/768, 0.1, 200.0)
+	proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(WinWidth)/WinHeight, 0.1, 200.0)
 	projUniform := gl.GetUniformLocation(program, gl.Str("proj\x00"))
 	gl.UniformMatrix4fv(projUniform, 1, false, &proj[0])
 
@@ -110,6 +117,14 @@ func main() {
 		state = window.GetKey(glfw.KeyRight)
 		if state == glfw.Press {
 			angle += elapsed
+		}
+
+		mx, my := window.GetCursorPos()
+		mx -= WinWidth / 2
+		my -= WinHeight / 2
+		if mx != 0 || my != 0 {
+			fmt.Println(mx, my)
+			window.SetCursorPos(WinWidth/2, WinHeight/2)
 		}
 
 		gl.UseProgram(program)
