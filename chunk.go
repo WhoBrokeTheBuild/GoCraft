@@ -3,7 +3,7 @@ package main
 import (
     "os"
     "io"
-    _ "compress/gzip"
+    "path/filepath"
     "compress/zlib"
     "encoding/binary"
     "bufio"
@@ -29,8 +29,11 @@ func (c *Chunk) GetLength() (int) {
     return len(c.Data) * len(c.Data[0]) * len(c.Data[0][0])
 }
 
-func (ch *Chunk) Load(filename string, x int, z int, program uint32) (error) {
-    file, err := os.Open(filename)
+func (ch *Chunk) Load(dir string, x int, z int, program uint32) (error) {
+    mcaName := fmt.Sprintf("r.%v.%v.mca", x>>5, z>>5)
+    mcaPath := filepath.Join(dir, "region", mcaName)
+
+    file, err := os.Open(mcaPath)
     if err != nil {
         return err
     }
@@ -87,6 +90,7 @@ func (ch *Chunk) Load(filename string, x int, z int, program uint32) (error) {
 				}
 				// Note that the old format is XZY and the new format is YZX
 				x, z, y := indexToCoords(i, 16, 16)
+                y += 16 * section.y
                 // coordsToIndex(x, z, y+16*section.y, 16, 256)
 				ch.Data[x][z][y] = BlockID{ int(blockId), int(metadata) }
 			}

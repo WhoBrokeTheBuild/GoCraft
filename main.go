@@ -59,7 +59,7 @@ func main() {
 	projUniform := gl.GetUniformLocation(program, gl.Str("proj\x00"))
 	gl.UniformMatrix4fv(projUniform, 1, false, &proj[0])
 
-	view := mgl32.LookAtV(mgl32.Vec3{ 32, 32, 32 }, mgl32.Vec3{ 16, 0, 16 }, mgl32.Vec3{ 0, 1, 0 })
+	view := mgl32.LookAtV(mgl32.Vec3{ 32, 32, 32 }, mgl32.Vec3{ 16, 24, 16 }, mgl32.Vec3{ 0, 1, 0 })
 	viewUniform := gl.GetUniformLocation(program, gl.Str("view\x00"))
 	gl.UniformMatrix4fv(viewUniform, 1, false, &view[0])
 
@@ -78,12 +78,14 @@ func main() {
     for x := 0; x < len(chunks); x++ {
         for z := 0; z < len(chunks[0]); z++ {
             chunks[x][z] = Chunk{}
-            err = chunks[x][z].Load("maps/Panda Islands/region/r.0.0.mca", x, z, program)
+            err = chunks[x][z].Load("maps/Panda Islands", x, z, program)
             if err != nil {
                 panic(err)
             }
         }
     }
+
+    gl.CullFace(gl.FRONT_AND_BACK)
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
@@ -118,8 +120,10 @@ func main() {
         for x := 0; x < len(chunks); x++ {
             for z := 0; z < len(chunks[0]); z++ {
                 chunk := chunks[x][z]
-                model = mgl32.Translate3D(float32(x * 16), 0, float32(z * 16))
-                model = model.Mul4(mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0}))
+
+                model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
+                model = model.Mul4(mgl32.Translate3D(float32(x * 16), 0, float32(z * 16)))
+
         		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
         		gl.BindVertexArray(chunk.VAO)
