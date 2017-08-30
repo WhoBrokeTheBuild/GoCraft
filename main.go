@@ -59,7 +59,7 @@ func main() {
 	projUniform := gl.GetUniformLocation(program, gl.Str("proj\x00"))
 	gl.UniformMatrix4fv(projUniform, 1, false, &proj[0])
 
-	view := mgl32.LookAtV(mgl32.Vec3{ 70, 70, 70 }, mgl32.Vec3{ 0, 0, 0 }, mgl32.Vec3{ 0, 1, 0 })
+	view := mgl32.LookAtV(mgl32.Vec3{ 32, 32, 32 }, mgl32.Vec3{ 16, 0, 16 }, mgl32.Vec3{ 0, 1, 0 })
 	viewUniform := gl.GetUniformLocation(program, gl.Str("view\x00"))
 	gl.UniformMatrix4fv(viewUniform, 1, false, &view[0])
 
@@ -74,74 +74,16 @@ func main() {
 	texUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
 	gl.Uniform1i(texUniform, 0)
 
-    allBlocks := GetAllBlocks()
-
-    chunk := [32][32][128]BlockID{}
-    chunkLen := len(chunk) * len(chunk[0]) * len(chunk[0][0])
-
-    for i := 0; i < len(chunk); i++ {
-        for j := 0; j < len(chunk[0]); j++ {
-            for k := 0; k < 5; k++ {
-                chunk[i][j][k] = BlockID{ 1, 0 }
-            }
-            chunk[i][j][5] = BlockID{ 3, 0 }
-            chunk[i][j][6] = BlockID{ 3, 0 }
-            chunk[i][j][7] = BlockID{ 3, 0 }
-            chunk[i][j][8] = BlockID{ 2, 0 }
-        }
-    }
-
-	var vao uint32
-	gl.GenVertexArrays(1, &vao)
-	gl.BindVertexArray(vao)
-
-	var vbos [2]uint32
-	gl.GenBuffers(2, &vbos[0])
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
-	gl.BufferData(gl.ARRAY_BUFFER, chunkLen * 36 * 3 * 4, nil, gl.DYNAMIC_DRAW)
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbos[1])
-    gl.BufferData(gl.ARRAY_BUFFER, chunkLen * 36 * 2 * 4, nil, gl.DYNAMIC_DRAW)
-
-    spaceOffset := []float32{ float32(-(len(chunk) + 1) / 2), float32(-(len(chunk[0][0]) + 1) / 2), float32(-(len(chunk[0]) + 1) / 2) }
-
-    vertOffset := 0
-    texcoordOffset := 0
-    for row := range chunk {
-        for col := range chunk[row] {
-            for slice := range chunk[row][col] {
-                id := chunk[row][col][slice]
-                block := allBlocks[id]
-                verts, texcoords := block.GetData()
-
-                position := []float32{ float32(row), float32(slice), float32(col) }
-
-                for i := range verts {
-                    verts[i] += spaceOffset[i % 3]
-                    verts[i] += position[i % 3]
-                }
-
-                gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
-                gl.BufferSubData(gl.ARRAY_BUFFER, vertOffset, len(verts) * 4, gl.Ptr(verts))
-                vertOffset += len(verts) * 4
-
-                gl.BindBuffer(gl.ARRAY_BUFFER, vbos[1])
-                gl.BufferSubData(gl.ARRAY_BUFFER, texcoordOffset, len(texcoords) * 4, gl.Ptr(texcoords))
-                texcoordOffset += len(texcoords) * 4
+    chunks := [3][3]Chunk{}
+    for x := 0; x < len(chunks); x++ {
+        for z := 0; z < len(chunks[0]); z++ {
+            chunks[x][z] = Chunk{}
+            err = chunks[x][z].Load("maps/Panda Islands/region/r.0.0.mca", x, z, program)
+            if err != nil {
+                panic(err)
             }
         }
     }
-
-    gl.BindBuffer(gl.ARRAY_BUFFER, vbos[0])
-    vertAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_vert\x00")))
-    gl.EnableVertexAttribArray(vertAttr)
-    gl.VertexAttribPointer(vertAttr, 3, gl.FLOAT, false, 0, gl.PtrOffset(0))
-
-    gl.BindBuffer(gl.ARRAY_BUFFER, vbos[1])
-	texcoordAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_texcoord\x00")))
-	gl.EnableVertexAttribArray(texcoordAttr)
-	gl.VertexAttribPointer(texcoordAttr, 2, gl.FLOAT, false, 0, gl.PtrOffset(0))
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
@@ -167,17 +109,23 @@ func main() {
         if state == glfw.Press {
             angle += elapsed
         }
-        model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
 
-		gl.UseProgram(program)
-		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
-
-		gl.BindVertexArray(vao)
+        gl.UseProgram(program)
 
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, tex)
 
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(chunkLen * 36))
+        for x := 0; x < len(chunks); x++ {
+            for z := 0; z < len(chunks[0]); z++ {
+                chunk := chunks[x][z]
+                model = mgl32.Translate3D(float32(x * 16), 0, float32(z * 16))
+                model = model.Mul4(mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0}))
+        		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+
+        		gl.BindVertexArray(chunk.VAO)
+        		gl.DrawArrays(gl.TRIANGLES, 0, int32(chunk.GetLength() * 36))
+            }
+        }
 
 		window.SwapBuffers()
 		glfw.PollEvents()

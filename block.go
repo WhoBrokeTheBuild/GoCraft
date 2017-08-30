@@ -14,7 +14,7 @@ type Block struct {
     TexCoords   []mgl32.Vec2 // Top, Bottom, Sides
 }
 
-func (b Block) GetData() ([]float32, []float32) {
+func (b *Block) GetData() ([]float32, []float32) {
     vertices := []mgl32.Vec3 {
         // Top
         { 0.0, 1.0, 0.0 },
@@ -184,6 +184,13 @@ func GetAllBlocks() map[BlockID]Block {
                 { 0.0, sq }, { sq, sq }, { 0.0, sq * 2 }, { sq, sq * 2 },
                 { 0.0, sq }, { sq, sq }, { 0.0, sq * 2 }, { sq, sq * 2 },
                 { 0.0, sq }, { sq, sq }, { 0.0, sq * 2 }, { sq, sq * 2 },
+            },
+        },
+        BlockID{ 5, 0 }: Block {
+            "Wood Plank", []mgl32.Vec2 {
+                { sq * 4, 0.0 }, { sq * 5, 0.0 }, { sq * 4, sq }, { sq * 5, sq },
+                { sq * 4, 0.0 }, { sq * 5, 0.0 }, { sq * 4, sq }, { sq * 5, sq },
+                { sq * 4, 0.0 }, { sq * 5, 0.0 }, { sq * 4, sq }, { sq * 5, sq },
             },
         },
     }

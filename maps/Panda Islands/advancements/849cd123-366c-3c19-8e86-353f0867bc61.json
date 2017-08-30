@@ -1,0 +1,52 @@
+{
+  "minecraft:recipes/brewing/fermented_spider_eye": {
+    "criteria": {
+      "has_spider_eye": "2017-08-20 20:15:20 -1100"
+    },
+    "done": true
+  },
+  "minecraft:nether/obtain_blaze_rod": {
+    "criteria": {
+      "blaze_rod": "2017-08-20 20:15:21 -1100"
+    },
+    "done": true
+  },
+  "minecraft:story/shiny_gear": {
+    "criteria": {
+      "diamond_helmet": "2017-08-20 20:14:56 -1100"
+    },
+    "done": true
+  },
+  "minecraft:adventure/root": {
+    "criteria": {
+      "killed_something": "2017-08-20 20:15:14 -1100"
+    },
+    "done": true
+  },
+  "minecraft:adventure/kill_a_mob": {
+    "criteria": {
+      "spider": "2017-08-20 20:15:14 -1100"
+    },
+    "done": true
+  },
+  "minecraft:adventure/kill_all_mobs": {
+    "criteria": {
+      "magma_cube": "2017-08-20 20:15:26 -1100",
+      "blaze": "2017-08-20 20:15:21 -1100",
+      "spider": "2017-08-20 20:15:14 -1100"
+    },
+    "done": false
+  },
+  "minecraft:recipes/brewing/blaze_powder": {
+    "criteria": {
+      "has_blaze_rod": "2017-08-20 20:15:21 -1100"
+    },
+    "done": true
+  },
+  "minecraft:recipes/brewing/brewing_stand": {
+    "criteria": {
+      "has_blaze_rod": "2017-08-20 20:15:21 -1100"
+    },
+    "done": true
+  }
+}
