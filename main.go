@@ -68,10 +68,10 @@ func main() {
 	camera := mgl32.LookAtV(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{16, 24, 16}, mgl32.Vec3{0, 1, 0})
 	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-
+    */
 	world := mgl32.Ident4()
 	worldUniform := gl.GetUniformLocation(program, gl.Str("world\x00"))
-	gl.UniformMatrix4fv(worldUniform, 1, false, &world[0])*/
+	gl.UniformMatrix4fv(worldUniform, 1, false, &world[0])
 
 	tex, err := newTexture("blocks.png")
 	if err != nil {
@@ -99,11 +99,11 @@ func main() {
 
 	previousTime := glfw.GetTime()
 
-	camera := NewFpsCamera(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 1, 0}, -90, 0, input)
+	camera := NewFpsCamera(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{0, -1, 0}, -9.3, -130, input)
+
+    gl.ClearColor(0.2, 0.5, 0.5, 1.0)
 
 	for !window.ShouldClose() {
-		gl.ClearColor(0.2, 0.5, 0.5, 1.0)
-
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		input.CheckpointCursorChange()
@@ -123,8 +123,8 @@ func main() {
 		fov := float32(60.0)
 		projectTransform := mgl32.Perspective(mgl32.DegToRad(fov),
 			float32(1024)/float32(768),
-			0.1,
-			100.0)
+			1.0,
+			1024.0)
 
 		camTransform := camera.GetTransform()
 		gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("camera\x00")), 1, false, &camTransform[0])
