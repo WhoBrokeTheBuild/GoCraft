@@ -25,6 +25,8 @@ func main() {
 		WinWidth  = 1024
 		WinHeight = 768
 	)
+	input := NewInputManager()
+
 	err := glfw.Init()
 	if err != nil {
 		panic(err)
@@ -42,6 +44,10 @@ func main() {
 	}
 
 	window.MakeContextCurrent()
+	window.SetInputMode(glfw.CursorMode, glfw.CursorDisabled)
+
+	window.SetKeyCallback(input.keyCallback)
+	window.SetCursorPosCallback(input.mouseCallback)
 
 	window.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
 	window.SetCursorPos(WinWidth/2, WinHeight/2)
@@ -62,17 +68,17 @@ func main() {
 
 	gl.UseProgram(program)
 
-	proj := mgl32.Perspective(mgl32.DegToRad(45.0), float32(WinWidth)/WinHeight, 0.1, 200.0)
-	projUniform := gl.GetUniformLocation(program, gl.Str("proj\x00"))
-	gl.UniformMatrix4fv(projUniform, 1, false, &proj[0])
+	/*project := mgl32.Perspective(mgl32.DegToRad(45.0), float32(1024)/768, 0.1, 200.0)
+	projectUniform := gl.GetUniformLocation(program, gl.Str("project\x00"))
+	gl.UniformMatrix4fv(projectUniform, 1, false, &project[0])
 
-	view := mgl32.LookAtV(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{16, 24, 16}, mgl32.Vec3{0, 1, 0})
-	viewUniform := gl.GetUniformLocation(program, gl.Str("view\x00"))
-	gl.UniformMatrix4fv(viewUniform, 1, false, &view[0])
-
-	model := mgl32.Ident4()
-	modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
-	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+	camera := mgl32.LookAtV(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{16, 24, 16}, mgl32.Vec3{0, 1, 0})
+	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
+	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+    */
+	world := mgl32.Ident4()
+	worldUniform := gl.GetUniformLocation(program, gl.Str("world\x00"))
+	gl.UniformMatrix4fv(worldUniform, 1, false, &world[0])
 
 	tex, err := newTexture("blocks.png")
 	if err != nil {
@@ -98,26 +104,22 @@ func main() {
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 
-	angle := 0.0
 	previousTime := glfw.GetTime()
 
-	var state glfw.Action
+	camera := NewFpsCamera(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{0, -1, 0}, -9.3, -130, input)
+
+    gl.ClearColor(0.2, 0.5, 0.5, 1.0)
 
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+		input.CheckpointCursorChange()
 
 		time := glfw.GetTime()
 		elapsed := time - previousTime
 		previousTime = time
 
-		state = window.GetKey(glfw.KeyLeft)
-		if state == glfw.Press {
-			angle -= elapsed
-		}
-		state = window.GetKey(glfw.KeyRight)
-		if state == glfw.Press {
-			angle += elapsed
-		}
+		camera.Update(elapsed)
 
 		mx, my := window.GetCursorPos()
 		mx -= WinWidth / 2
@@ -132,14 +134,21 @@ func main() {
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.BindTexture(gl.TEXTURE_2D, tex)
 
+		// creates perspective
+		fov := float32(60.0)
+		projectTransform := mgl32.Perspective(mgl32.DegToRad(fov),
+			float32(1024)/float32(768),
+			1.0,
+			1024.0)
+
+		camTransform := camera.GetTransform()
+		gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("camera\x00")), 1, false, &camTransform[0])
+		gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("project\x00")), 1, false,
+			&projectTransform[0])
+
 		for x := 0; x < len(chunks); x++ {
 			for z := 0; z < len(chunks[0]); z++ {
 				chunk := chunks[x][z]
-
-				model = mgl32.HomogRotate3D(float32(angle), mgl32.Vec3{0, 1, 0})
-				model = model.Mul4(mgl32.Translate3D(float32(x*16), 0, float32(z*16)))
-
-				gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
 				gl.BindVertexArray(chunk.VAO)
 				gl.DrawArrays(gl.TRIANGLES, 0, int32(chunk.GetLength()*36))
@@ -250,9 +259,9 @@ func newTexture(file string) (uint32, error) {
 var vertexShader = `
 #version 330 core
 
-uniform mat4 proj;
-uniform mat4 view;
-uniform mat4 model;
+uniform mat4 project;
+uniform mat4 camera;
+uniform mat4 world;
 
 in vec3 in_vert;
 in vec2 in_texcoord;
@@ -261,7 +270,7 @@ out vec2 texcoord;
 
 void main() {
 	texcoord = in_texcoord;
-	gl_Position = proj * view * model * vec4(in_vert, 1);
+	gl_Position = project * camera * world * vec4(in_vert, 1);
     if (texcoord.x < 0.0 && texcoord.y < 0.0) {
         gl_Position = vec4(0, 0, 0, 0);
     }
