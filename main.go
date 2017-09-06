@@ -49,8 +49,8 @@ func main() {
 	window.SetKeyCallback(input.keyCallback)
 	window.SetCursorPosCallback(input.mouseCallback)
 
-	window.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
-	window.SetCursorPos(WinWidth/2, WinHeight/2)
+	//window.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
+	//window.SetCursorPos(WinWidth/2, WinHeight/2)
 
 	// Initialize Glow
 	err = gl.Init()
@@ -75,7 +75,7 @@ func main() {
 	camera := mgl32.LookAtV(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{16, 24, 16}, mgl32.Vec3{0, 1, 0})
 	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
-    */
+	*/
 	world := mgl32.Ident4()
 	worldUniform := gl.GetUniformLocation(program, gl.Str("world\x00"))
 	gl.UniformMatrix4fv(worldUniform, 1, false, &world[0])
@@ -87,7 +87,7 @@ func main() {
 	texUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
 	gl.Uniform1i(texUniform, 0)
 
-	chunks := [3][3]Chunk{}
+	chunks := [2][2]Chunk{}
 	for x := 0; x < len(chunks); x++ {
 		for z := 0; z < len(chunks[0]); z++ {
 			chunks[x][z] = Chunk{}
@@ -104,11 +104,14 @@ func main() {
 	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
 	previousTime := glfw.GetTime()
 
 	camera := NewFpsCamera(mgl32.Vec3{32, 32, 32}, mgl32.Vec3{0, -1, 0}, -9.3, -130, input)
 
-    gl.ClearColor(0.2, 0.5, 0.5, 1.0)
+	gl.ClearColor(0.2, 0.5, 0.5, 1.0)
 
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -121,13 +124,12 @@ func main() {
 
 		camera.Update(elapsed)
 
-		mx, my := window.GetCursorPos()
-		mx -= WinWidth / 2
-		my -= WinHeight / 2
-		if mx != 0 || my != 0 {
-			fmt.Println(mx, my)
-			window.SetCursorPos(WinWidth/2, WinHeight/2)
-		}
+		//mx, my := window.GetCursorPos()
+		//mx -= WinWidth / 2
+		//my -= WinHeight / 2
+		//if mx != 0 || my != 0 {
+		//	window.SetCursorPos(WinWidth/2, WinHeight/2)
+		//}
 
 		gl.UseProgram(program)
 
@@ -148,10 +150,7 @@ func main() {
 
 		for x := 0; x < len(chunks); x++ {
 			for z := 0; z < len(chunks[0]); z++ {
-				chunk := chunks[x][z]
-
-				gl.BindVertexArray(chunk.VAO)
-				gl.DrawArrays(gl.TRIANGLES, 0, int32(chunk.GetLength()*36))
+				chunks[x][z].Render(program)
 			}
 		}
 

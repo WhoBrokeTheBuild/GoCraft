@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/mathgl/mgl32"
 	"io"
 	"math"
 	"os"
@@ -18,15 +19,13 @@ var (
 )
 
 type Chunk struct {
-	X    int
-	Z    int
-	Data [16][16][256]BlockID
-	VAO  uint32
-	VBOs [2]uint32
-}
-
-func (c *Chunk) GetLength() int {
-	return len(c.Data) * len(c.Data[0]) * len(c.Data[0][0])
+	X                 int
+	Z                 int
+	Data              [16][16][256]BlockID
+	VAO               uint32
+	VBOs              [2]uint32
+	TransparentOffset int
+	VertCount         int
 }
 
 func (ch *Chunk) Load(dir string, x int, z int, program uint32) error {
@@ -79,48 +78,45 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) error {
 		return err
 	}
 
-	if len(chunkData.sections) != 0 {
-		for _, section := range chunkData.sections {
-			for i, blockId := range section.blocks {
-				var metadata byte
-				if i&1 == 1 {
-					metadata = section.data[i/2] >> 4
-				} else {
-					metadata = section.data[i/2] & 0xf
-				}
-				// Note that the old format is XZY and the new format is YZX
-				x, z, y := indexToCoords(i, 16, 16)
-				y += 16 * section.y
-				// coordsToIndex(x, z, y+16*section.y, 16, 256)
-				ch.Data[x][z][y] = BlockID{int(blockId), int(metadata)}
+	for _, section := range chunkData.sections {
+		for i, blockId := range section.blocks {
+			var metadata byte
+			if i&1 == 1 {
+				metadata = section.data[i/2] >> 4
+			} else {
+				metadata = section.data[i/2] & 0xf
 			}
+			// Note that the old format is XZY and the new format is YZX
+			x, z, y := indexToCoords(i, 16, 16)
+			y += 16 * section.y
+			// coordsToIndex(x, z, y+16*section.y, 16, 256)
+			ch.Data[x][z][y] = BlockID{int(blockId), int(metadata)}
 		}
-	} else {
-		//if chunkData.blocks != nil && chunkData.data != nil {
-		//	for i, blockId := range chunkData.blocks {
-		//		var metadata byte
-		//		if i&1 == 1 {
-		//			metadata = chunkData.data[i/2] >> 4
-		//		} else {
-		//			metadata = chunkData.data[i/2] & 0xf
-		//		}
-		//        ch.Data[i] = BlockID{ int(blockId + (metadata << 8)), 0 }
-		//	}
-		//}
 	}
 
+	ch.Generate(program)
+
+	return nil
+}
+
+func (ch *Chunk) Generate(program uint32) {
 	allBlocks := GetAllBlocks()
 
-	gl.GenVertexArrays(1, &ch.VAO)
+	ch.VertCount = len(ch.Data) * len(ch.Data[0]) * len(ch.Data[0][0]) * 36
+
+	if ch.VAO == 0 {
+		gl.GenVertexArrays(1, &ch.VAO)
+		gl.BindVertexArray(ch.VAO)
+		gl.GenBuffers(2, &ch.VBOs[0])
+	}
+
 	gl.BindVertexArray(ch.VAO)
 
-	gl.GenBuffers(2, &ch.VBOs[0])
-
 	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
-	gl.BufferData(gl.ARRAY_BUFFER, ch.GetLength()*36*3*4, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, ch.VertCount*3*4, nil, gl.DYNAMIC_DRAW)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
-	gl.BufferData(gl.ARRAY_BUFFER, ch.GetLength()*36*2*4, nil, gl.DYNAMIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, ch.VertCount*2*4, nil, gl.DYNAMIC_DRAW)
 
 	vertOffset := 0
 	texcoordOffset := 0
@@ -131,6 +127,9 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) error {
 				block, ok := allBlocks[id]
 				if !ok {
 					block = allBlocks[BlockID{0, 0}]
+				}
+				if block.Transparent {
+					continue
 				}
 				verts, texcoords := block.GetData()
 
@@ -151,6 +150,40 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) error {
 		}
 	}
 
+	ch.TransparentOffset = vertOffset / 4 / 3
+
+	for row := range ch.Data {
+		for col := range ch.Data[row] {
+			for slice := range ch.Data[row][col] {
+				id := ch.Data[row][col][slice]
+				block, ok := allBlocks[id]
+				if !ok {
+					block = allBlocks[BlockID{0, 0}]
+				}
+				if !block.Transparent {
+					continue
+				}
+				verts, texcoords := block.GetData()
+
+				position := []float32{float32(row), float32(slice), float32(col)}
+
+				for i := range verts {
+					verts[i] += position[i%3]
+				}
+
+				gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
+				gl.BufferSubData(gl.ARRAY_BUFFER, vertOffset, len(verts)*4, gl.Ptr(verts))
+				vertOffset += len(verts) * 4
+
+				gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[1])
+				gl.BufferSubData(gl.ARRAY_BUFFER, texcoordOffset, len(texcoords)*4, gl.Ptr(texcoords))
+				texcoordOffset += len(texcoords) * 4
+			}
+		}
+	}
+
+	ch.VertCount = vertOffset / 4 / 3
+
 	gl.BindBuffer(gl.ARRAY_BUFFER, ch.VBOs[0])
 	vertAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_vert\x00")))
 	gl.EnableVertexAttribArray(vertAttr)
@@ -160,8 +193,16 @@ func (ch *Chunk) Load(dir string, x int, z int, program uint32) error {
 	texcoordAttr := uint32(gl.GetAttribLocation(program, gl.Str("in_texcoord\x00")))
 	gl.EnableVertexAttribArray(texcoordAttr)
 	gl.VertexAttribPointer(texcoordAttr, 2, gl.FLOAT, false, 0, gl.PtrOffset(0))
+}
 
-	return nil
+func (ch *Chunk) Render(program uint32) {
+
+	world := mgl32.Translate3D(float32(ch.X*16), 0, float32(ch.Z*16))
+	gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("world\x00")), 1, false, &world[0])
+
+	gl.BindVertexArray(ch.VAO)
+	gl.DrawArrays(gl.TRIANGLES, 0, int32(ch.TransparentOffset))
+	gl.DrawArrays(gl.TRIANGLES, int32(ch.TransparentOffset), int32(ch.VertCount-ch.TransparentOffset))
 }
 
 func indexToCoords(i, aMax, bMax int) (a, b, c int) {

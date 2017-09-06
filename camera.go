@@ -37,7 +37,7 @@ func NewFpsCamera(position, worldUp mgl32.Vec3, yaw, pitch float64, im *InputMan
 		inputManager:      im,
 	}
 
-    im.CursorChange()
+	im.CursorChange()
 	return &cam
 }
 
